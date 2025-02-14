@@ -1,0 +1,72 @@
+[
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "sf-third-party-package",
+    "section": "",
+    "text": "Install latest from the GitHub [repository][repo]:",
+    "crumbs": [
+      "sf-third-party-package"
+    ]
+  },
+  {
+    "objectID": "index.html#how-to-step-up-a-third-party-package",
+    "href": "index.html#how-to-step-up-a-third-party-package",
+    "title": "sf-third-party-package",
+    "section": "How to Step Up a Third Party Package",
+    "text": "How to Step Up a Third Party Package",
+    "crumbs": [
+      "sf-third-party-package"
+    ]
+  },
+  {
+    "objectID": "index.html#initial-setup",
+    "href": "index.html#initial-setup",
+    "title": "sf-third-party-package",
+    "section": "Initial Setup",
+    "text": "Initial Setup\nconda create --name manage_package --override-channels -c https://repo.anaconda.com/pkgs/snowflake python=3.11 --y; conda activate manage_package;\npip install -r requirements.txt\nFill extra-requirements.txt with the packages you want to install\nlangchain-anthropic\nlanggraph\nFor example then run\n\nNote: Please make sure you either add the default you want as well as the warehouse that you want to be using as well and make sure you set up snowflake cli.\n\n\nbash download_and_stage_packages.sh;\nThe result of this will be the packages sitting in PYTHON_PACKAGE stage ready to be imported through snowflake.",
+    "crumbs": [
+      "sf-third-party-package"
+    ]
+  },
+  {
+    "objectID": "index.html#notebook-path",
+    "href": "index.html#notebook-path",
+    "title": "sf-third-party-package",
+    "section": "Notebook Path",
+    "text": "Notebook Path\n\nEnvironment.yml\nIn the previous step we created a file at sf_nbs/enivronment.yml file looking like this\nname: app_environment\nchannels:\n  - snowflake\ndependencies:\n  - anyio=*\n  - distro=*\n  - httpx=*\n  - jiter=*\n  - pydantic=*\n  - sniffio=*\n  - typing-extensions=*\n  - defusedxml=*\n  - langsmith=*\n  - tenacity=*\n  - jsonpatch=*\n  - pyyaml=*\n  - packaging=*\n  - langchain-core=*\n  - orjson=*\nThe reason for this is that these the the needed libraries to support this package. This might not be a perfect process, but this will get you 90% of the way there by the end of this tutorial you will be able to use langchain-anthropic and langgraph in snowflake notebooks or snowflake in general. This first iteration will show you how to do this in notebooks.\n\n\nCreate Git Integration and Push Notebook To Snowflake\nbash create_notebooks_git_to_sf.sh \\\n  --repository sf-third-party-package \\\n  --secret_name my_pacakage_secret \\\n  --api_integration_name my_package_integration \\\n  --git_username $git_username \\\n  --git_password $git_password \\\n  --github_prefix \"https://github.com/Jeremy-Demlow\"\n\n\nCreate Notebook\nNow the notebook URL will appear and you can click this and open it in the Snowsight UI. You can now run the notebook and it will be able to use the packages that you have installed. There is one more step and that is getting the pointed stages .zip files into the notebook to install.",
+    "crumbs": [
+      "sf-third-party-package"
+    ]
+  },
+  {
+    "objectID": "index.html#snowflake-udfs",
+    "href": "index.html#snowflake-udfs",
+    "title": "sf-third-party-package",
+    "section": "Snowflake UDFs",
+    "text": "Snowflake UDFs\nTODO: Write instructions and how to for this\n\nNOTE: There is a Using third-party packages from PyPi PrPr that snowflake will be releasing shortly for UDFs that will make this much easier for UDFS and stored procedures.",
+    "crumbs": [
+      "sf-third-party-package"
+    ]
+  },
+  {
+    "objectID": "index.html#streamlit-in-snowflake",
+    "href": "index.html#streamlit-in-snowflake",
+    "title": "sf-third-party-package",
+    "section": "Streamlit in Snowflake",
+    "text": "Streamlit in Snowflake\nTODO: Write instructions and how to for this",
+    "crumbs": [
+      "sf-third-party-package"
+    ]
+  },
+  {
+    "objectID": "core.html",
+    "href": "core.html",
+    "title": "core",
+    "section": "",
+    "text": "source\n\nfoo\n\n foo ()",
+    "crumbs": [
+      "core"
+    ]
+  }
+]
