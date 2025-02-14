@@ -1,0 +1,9 @@
+project:
+  output-dir: _docs
+
+website:
+  title: "sf-third-party-package"
+  site-url: "https://Jeremy-Demlow.github.io/sf-third-party-package"
+  description: "third party package management example snowflake"
+  repo-branch: main
+  repo-url: "https://github.com/Jeremy-Demlow/sf-third-party-package"

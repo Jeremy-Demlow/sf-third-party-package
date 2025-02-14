@@ -1,0 +1,19 @@
+name: app_environment
+channels:
+  - snowflake
+dependencies:
+  - anyio=*
+  - distro=*
+  - httpx=*
+  - jiter=*
+  - pydantic=*
+  - sniffio=*
+  - typing-extensions=*
+  - defusedxml=*
+  - langsmith=*
+  - tenacity=*
+  - jsonpatch=*
+  - pyyaml=*
+  - packaging=*
+  - langchain-core=*
+  - orjson=*
