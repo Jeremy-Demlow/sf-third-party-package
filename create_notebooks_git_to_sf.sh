@@ -27,7 +27,7 @@ GITHUB_PREFIX="${GITHUB_PREFIX:-'https://github.com'}"
 
 # Configure logging
 log_info() {
-    echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - $1"
+echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') - $1"
 }
 
 log_error() {
@@ -38,16 +38,44 @@ log_warning() {
     echo "[WARNING] $(date '+%Y-%m-%d %H:%M:%S') - $1" >&2
 }
 
-# Function to execute Snowflake SQL commands
+# Function to execute Snowflake SQL commands with masked output
 execute_sql() {
     local query="$1"
-    # Mask sensitive information in logs
-    local masked_query
-    masked_query=$(echo "$query" | sed -E 's/PASSWORD = '\''[^'\'']*'\''/PASSWORD = '\''******'\''/g')
-    masked_query=$(echo "$masked_query" | sed -E 's/USERNAME = '\''[^'\'']*'\''/USERNAME = '\''******'\''/g')
+    local suppress_log="${2:-false}"
     
-    log_info "Executing SQL: $masked_query"
+    if [ "$suppress_log" = false ]; then
+        # Create masked version for logging
+        local masked_query
+        masked_query=$(echo "$query" | sed 's/PASSWORD.*$/PASSWORD = ******;/g' | sed 's/USERNAME.*PASSWORD/USERNAME = ****** PASSWORD/g')
+        log_info "Executing SQL: $masked_query"
+    fi
+    
     snow sql -c "$CONNECTION" -q "$query"
+}
+
+# Function to check if object exists
+check_object_exists() {
+    local object_type="$1"
+    local object_name="$2"
+    local result
+    
+    case $object_type in
+        "SECRET")
+            result=$(execute_sql "SHOW SECRETS LIKE '$object_name';" true)
+            ;;
+        "API_INTEGRATION")
+            result=$(execute_sql "SHOW API INTEGRATIONS LIKE '$object_name';" true)
+            ;;
+        "GIT_REPOSITORY")
+            result=$(execute_sql "SHOW GIT REPOSITORIES LIKE '\"$object_name\"';" true)
+            ;;
+    esac
+    
+    if [ -n "$result" ]; then
+        return 0
+    else
+        return 1
+    fi
 }
 
 # Function to parse command line arguments
@@ -77,60 +105,60 @@ parse_arguments() {
     done
 }
 
-# Function to create database and schema
+# Function to create database and schema if they don't exist
 create_database_and_schema() {
     log_info "Creating database and schema if they don't exist..."
     execute_sql "CREATE DATABASE IF NOT EXISTS $DATABASE;"
     execute_sql "CREATE SCHEMA IF NOT EXISTS $DATABASE.$SCHEMA;"
 }
 
-# Function to create or update secret
-create_or_update_secret() {
-    log_info "Creating/updating Git secret with masked credentials..."
-    local masked_username="******"
-    local masked_password="******"
-    
-    # Log the masked version
-    log_info "Using secret with username: $masked_username"
-    
-    execute_sql "
-    CREATE OR REPLACE SECRET $SECRET_NAME
-        TYPE = password
-        USERNAME = '$GIT_USERNAME'
-        PASSWORD = '$GIT_PASSWORD';
-    "
+# Function to create secret if it doesn't exist
+create_secret_if_not_exists() {
+    if ! check_object_exists "SECRET" "$SECRET_NAME"; then
+        log_info "Creating secret $SECRET_NAME..."
+        execute_sql "
+CREATE SECRET IF NOT EXISTS $SECRET_NAME
+    TYPE = password
+    USERNAME = '$GIT_USERNAME'
+    PASSWORD = '$GIT_PASSWORD';" true
+    else
+        log_info "Secret $SECRET_NAME already exists, skipping creation"
+    fi
 }
 
-# Function to create or update API integration
-create_or_update_api_integration() {
-    log_info "Creating/updating API integration..."
-    execute_sql "
-    CREATE OR REPLACE API INTEGRATION $API_INTEGRATION_NAME
-        API_PROVIDER = git_https_api
-        API_ALLOWED_PREFIXES = ('$GITHUB_PREFIX')
-        ALLOWED_AUTHENTICATION_SECRETS = all
-        ENABLED = TRUE;
-    "
+# Function to create API integration if it doesn't exist
+create_api_integration_if_not_exists() {
+    if ! check_object_exists "API_INTEGRATION" "$API_INTEGRATION_NAME"; then
+        log_info "Creating API integration $API_INTEGRATION_NAME..."
+        execute_sql "
+CREATE API INTEGRATION IF NOT EXISTS $API_INTEGRATION_NAME
+    API_PROVIDER = git_https_api
+    API_ALLOWED_PREFIXES = ('$GITHUB_PREFIX')
+    ALLOWED_AUTHENTICATION_SECRETS = all
+    ENABLED = TRUE;"
+    else
+        log_info "API integration $API_INTEGRATION_NAME already exists, skipping creation"
+    fi
 }
 
-# Function to create or update git repository
-create_or_update_git_repo() {
-    log_info "Creating/updating Git repository..."
-    
-    execute_sql "
-    CREATE OR REPLACE GIT REPOSITORY \"$DATABASE\".\"$SCHEMA\".\"$REPOSITORY\"
-        API_INTEGRATION = $API_INTEGRATION_NAME
-        GIT_CREDENTIALS = $SECRET_NAME
-        ORIGIN = '$GITHUB_PREFIX/$REPOSITORY';
-    "
+# Function to create git repository if it doesn't exist
+create_git_repo_if_not_exists() {
+    if ! check_object_exists "GIT_REPOSITORY" "$REPOSITORY"; then
+        log_info "Creating git repository $REPOSITORY..."
+        execute_sql "
+CREATE GIT REPOSITORY IF NOT EXISTS \"$DATABASE\".\"$SCHEMA\".\"$REPOSITORY\"
+    API_INTEGRATION = $API_INTEGRATION_NAME
+    GIT_CREDENTIALS = $SECRET_NAME
+    ORIGIN = '$GITHUB_PREFIX/$REPOSITORY';"
+    else
+        log_info "Git repository $REPOSITORY already exists, skipping creation"
+    fi
 }
 
 # Function to fetch from git repository
 fetch_git_repository() {
     log_info "Fetching latest from Git repository..."
-    execute_sql "
-    ALTER GIT REPOSITORY \"${DATABASE}\".\"${SCHEMA}\".\"${REPOSITORY}\" FETCH;
-    "
+    execute_sql "ALTER GIT REPOSITORY \"${DATABASE}\".\"${SCHEMA}\".\"${REPOSITORY}\" FETCH;"
 }
 
 # Function to configure compute pool
@@ -165,19 +193,16 @@ create_notebooks() {
         # Prepare the ALTER NOTEBOOK command
         alter_notebook_cmd="
         ALTER NOTEBOOK IF EXISTS $identifier SET
-          EXTERNAL_ACCESS_INTEGRATIONS = ('allow_all_eai')
-        "
+          EXTERNAL_ACCESS_INTEGRATIONS = ('allow_all_eai')"
 
         # Add runtime-specific settings
         if [ "$USE_CONTAINER_RUNTIME" = true ] ; then
             alter_notebook_cmd+="
             COMPUTE_POOL = '${COMPUTE_POOL}'
-            RUNTIME_NAME = 'SYSTEM\$BASIC_RUNTIME'
-            "
+            RUNTIME_NAME = 'SYSTEM\$BASIC_RUNTIME'"
         else
             alter_notebook_cmd+="
-            QUERY_WAREHOUSE = '${WAREHOUSE}'
-            "
+            QUERY_WAREHOUSE = '${WAREHOUSE}'"
         fi
 
         # Execute the ALTER NOTEBOOK command
@@ -194,16 +219,16 @@ run_setup() {
     # Create initial database and schema
     create_database_and_schema
     
-    # Create or update secret if credentials provided
+    # Create secret if it doesn't exist and credentials are provided
     if [ ! -z "$GIT_USERNAME" ] && [ ! -z "$GIT_PASSWORD" ]; then
-        create_or_update_secret
+        create_secret_if_not_exists
     fi
     
-    # Create or update API integration
-    create_or_update_api_integration
+    # Create API integration if it doesn't exist
+    create_api_integration_if_not_exists
     
-    # Create or update git repository
-    create_or_update_git_repo
+    # Create git repository if it doesn't exist
+    create_git_repo_if_not_exists
     
     # Fetch from git repository
     fetch_git_repository
