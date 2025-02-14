@@ -9,7 +9,6 @@ dependencies:
   - pydantic=*
   - sniffio=*
   - typing-extensions=*
-  - defusedxml=*
   - langsmith=*
   - tenacity=*
   - jsonpatch=*
